@@ -93,7 +93,6 @@ This is a **monorepo** (multiple related projects in one repository) called **OG
 - **Styling**: Tailwind CSS
 - **Deployment**: Vercel
 - **Storage**: AWS S3
-```
 
 ## Simplified Component Interaction
 
