@@ -1,145 +1,264 @@
 # Project Architecture Diagram
 
-This diagram shows the high-level architecture of the OG-Img project - a monorepo for generating dynamic Open Graph images.
+This diagram shows the high-level architecture of the **json-render** project - a system that lets AI safely generate UIs using a guardrailed catalog of components.
 
 ```mermaid
 graph TB
-    subgraph "OG-Img Monorepo"
-        subgraph "Frontend Applications"
-            web[Web App<br/>Next.js]
-            chrome[Chrome Extension<br/>React + Vite]
+    subgraph "json-render Monorepo"
+        subgraph "Applications"
+            web[Web App<br/>Docs & Playground<br/>Next.js]
+            dashboard[Dashboard Example<br/>Demo App<br/>Next.js]
         end
 
         subgraph "Core Packages"
-            api[API Package<br/>Image Generation API]
-            cli[CLI Tool<br/>Command Line Interface]
-            lib[Library Package<br/>Core Logic]
+            core[core<br/>@json-render/core<br/>Types, Schemas, Validation]
+            react[react<br/>@json-render/react<br/>React Renderer & Hooks]
         end
 
         subgraph "Shared Utilities"
-            config[ESLint Config<br/>Shared Linting]
-            tsconfig[TypeScript Config<br/>Shared TS Settings]
-            ui[UI Components<br/>Shared React Components]
+            ui[UI Components<br/>@repo/ui<br/>Shared UI Library]
+            config[ESLint Config<br/>@repo/eslint-config<br/>Shared Linting]
+            tsconfig[TypeScript Config<br/>@repo/typescript-config<br/>Shared TS Settings]
         end
 
-        subgraph "External Services"
-            vercel[Vercel<br/>Deployment]
-            s3[AWS S3<br/>Image Storage]
+        subgraph "External"
+            ai[AI/LLM<br/>Claude, GPT, etc.]
+            zod[Zod<br/>Schema Validation]
         end
     end
 
-    web --> lib
-    chrome --> lib
-    api --> lib
-    cli --> lib
-
+    web --> react
     web --> ui
-    chrome --> ui
+    dashboard --> react
+    dashboard --> ui
+
+    react --> core
+
+    core --> zod
 
     web --> config
-    chrome --> config
-    api --> config
-    cli --> config
+    dashboard --> config
+    core --> config
+    react --> config
 
     web --> tsconfig
-    chrome --> tsconfig
-    api --> tsconfig
-    cli --> tsconfig
-    lib --> tsconfig
+    dashboard --> tsconfig
+    core --> tsconfig
+    react --> tsconfig
 
-    web --> vercel
-    api --> vercel
-
-    api --> s3
+    ai -.->|Generates JSON| web
+    ai -.->|Generates JSON| dashboard
 
     style web fill:#0070f3,color:#fff
-    style chrome fill:#4285f4,color:#fff
-    style api fill:#00c7b7,color:#fff
-    style cli fill:#ff6b6b,color:#fff
-    style lib fill:#ffd93d,color:#000
+    style dashboard fill:#4285f4,color:#fff
+    style core fill:#ffd93d,color:#000
+    style react fill:#00c7b7,color:#fff
     style ui fill:#95e1d3,color:#000
     style config fill:#e5e5e5,color:#000
     style tsconfig fill:#e5e5e5,color:#000
-    style vercel fill:#000,color:#fff
-    style s3 fill:#ff9900,color:#fff
+    style ai fill:#8b5cf6,color:#fff
+    style zod fill:#3b82f6,color:#fff
 ```
 
 ## Project Structure Overview
 
 ### What is this project?
-This is a **monorepo** (multiple related projects in one repository) called **OG-Img** that helps you generate beautiful Open Graph (OG) images for websites and social media.
+
+**json-render** is a framework that lets end users generate dashboards, widgets, apps, and data visualizations from prompts — safely constrained to components you define. It's **guardrailed**, **predictable**, and **fast**.
+
+### Why json-render?
+
+When users prompt for UI, you need guarantees. json-render gives AI a **constrained vocabulary** so output is always predictable:
+
+- **Guardrailed** — AI can only use components in your catalog
+- **Predictable** — JSON output matches your schema, every time
+- **Fast** — Stream and render progressively as the model responds
 
 ### Main Components:
 
-1. **Web App** - A Next.js website where users can create and customize OG images
-2. **Chrome Extension** - A browser extension for quick OG image generation
-3. **API** - Backend service that generates the actual images
-4. **CLI** - Command-line tool for developers to generate images from terminal
-5. **Library (lib)** - Core shared code used by all other packages
-6. **UI Components** - Reusable React components
-7. **Config Packages** - Shared settings for code quality and TypeScript
+1. **@json-render/core** - Core types, schemas, catalog definitions, visibility logic, actions, and validation
+2. **@json-render/react** - React renderer, providers (DataProvider, ActionProvider), hooks (useUIStream), and component system
+3. **Web App** - Documentation site and playground for testing json-render
+4. **Dashboard Example** - Example implementation showing how to build an AI-generated dashboard
+5. **Shared Utilities** - UI components, ESLint config, and TypeScript config
 
 ### How it works:
-- The Web App and Chrome Extension provide user interfaces
-- They both use the Library package for core functionality
-- The API generates images and stores them on AWS S3
-- Everything is deployed to Vercel
-- The CLI lets developers automate image generation
+
+1. **Define the guardrails** — Create a catalog of components, actions, and data bindings AI can use
+2. **Users prompt** — End users describe what they want in natural language
+3. **AI generates JSON** — Output is always predictable, constrained to your catalog
+4. **Render fast** — Stream and render progressively as the model responds
 
 ### Technology Stack:
+
 - **Framework**: Turborepo (for managing the monorepo)
 - **Frontend**: React, Next.js
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS
+- **Schema Validation**: Zod
 - **Deployment**: Vercel
-- **Storage**: AWS S3
+- **AI Models**: Works with any LLM (Claude, GPT, etc.)
 
-## Simplified Component Interaction
+## How It Works: User Flow
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Web/Extension
-    participant Library
-    participant API
-    participant S3
+    participant App
+    participant Catalog
+    participant AI
+    participant Renderer
+    participant Components
 
-    User->>Web/Extension: Create OG Image
-    Web/Extension->>Library: Process template & data
-    Library->>API: Request image generation
-    API->>API: Generate image
-    API->>S3: Upload image
-    S3-->>API: Return image URL
-    API-->>Web/Extension: Send image URL
-    Web/Extension-->>User: Display generated image
+    User->>App: "Create a revenue dashboard"
+    App->>Catalog: Get component definitions
+    Catalog-->>App: Available components & schemas
+    App->>AI: Send prompt + catalog constraints
+    AI-->>App: Stream JSON tree (guardrailed)
+    App->>Renderer: Pass JSON tree
+    Renderer->>Components: Render each element
+    Components-->>User: Display UI progressively
+
+    Note over AI,Renderer: AI can only output<br/>components from catalog
 ```
 
 ## Package Dependencies
 
 ```mermaid
-graph LR
-    A[apps/web] --> E[packages/lib]
-    A --> F[packages/ui]
-    A --> G[packages/config]
-    A --> H[packages/tsconfig]
+graph TB
+    A[apps/web] --> B[@json-render/react]
+    A --> C[@repo/ui]
+    A --> D[@repo/eslint-config]
+    A --> E[@repo/typescript-config]
 
-    B[apps/chrome-extension] --> E
-    B --> F
-    B --> G
-    B --> H
+    F[examples/dashboard] --> B
+    F --> C
+    F --> D
+    F --> E
 
-    C[packages/api] --> E
-    C --> G
-    C --> H
+    B --> G[@json-render/core]
+    B --> E
 
-    D[packages/cli] --> E
-    D --> G
-    D --> H
+    G --> H[Zod]
+    G --> D
+    G --> E
 
     style A fill:#0070f3,color:#fff
-    style B fill:#4285f4,color:#fff
-    style C fill:#00c7b7,color:#fff
-    style D fill:#ff6b6b,color:#fff
-    style E fill:#ffd93d,color:#000
-    style F fill:#95e1d3,color:#000
+    style F fill:#4285f4,color:#fff
+    style B fill:#00c7b7,color:#fff
+    style G fill:#ffd93d,color:#000
+    style C fill:#95e1d3,color:#000
+    style D fill:#e5e5e5,color:#000
+    style E fill:#e5e5e5,color:#000
+    style H fill:#3b82f6,color:#fff
+```
+
+## Core Concepts
+
+### 1. Catalog (Guardrails)
+
+Define what AI can use:
+
+```typescript
+const catalog = createCatalog({
+  components: {
+    Card: {
+      props: z.object({ title: z.string() }),
+      hasChildren: true,
+    },
+    Metric: {
+      props: z.object({
+        label: z.string(),
+        valuePath: z.string(),
+        format: z.enum(['currency', 'percent', 'number']),
+      }),
+    },
+  },
+  actions: {
+    export_report: { description: 'Export dashboard to PDF' },
+    refresh_data: { description: 'Refresh all metrics' },
+  },
+});
+```
+
+### 2. Component Registry
+
+How components render:
+
+```tsx
+const registry = {
+  Card: ({ element, children }) => (
+    <div className="card">
+      <h3>{element.props.title}</h3>
+      {children}
+    </div>
+  ),
+  Metric: ({ element }) => {
+    const value = useDataValue(element.props.valuePath);
+    return <div className="metric">{format(value)}</div>;
+  },
+};
+```
+
+### 3. Rendering
+
+```tsx
+import { Renderer, useUIStream } from '@json-render/react';
+
+function Dashboard() {
+  const { tree, send } = useUIStream({ api: '/api/generate' });
+
+  return (
+    <DataProvider initialData={{ revenue: 125000 }}>
+      <Renderer tree={tree} components={registry} />
+    </DataProvider>
+  );
+}
+```
+
+## Key Features
+
+### Conditional Visibility
+
+Show/hide components based on data or auth:
+
+```json
+{
+  "type": "AdminPanel",
+  "visible": { "auth": "signedIn" }
+}
+```
+
+### Rich Actions
+
+Actions with confirmation and callbacks:
+
+```json
+{
+  "type": "Button",
+  "props": {
+    "label": "Refund Payment",
+    "action": {
+      "name": "refund",
+      "confirm": {
+        "title": "Confirm Refund",
+        "variant": "danger"
+      }
+    }
+  }
+}
+```
+
+### Built-in Validation
+
+```json
+{
+  "type": "TextField",
+  "props": {
+    "valuePath": "/form/email",
+    "checks": [
+      { "fn": "required" },
+      { "fn": "email" }
+    ]
+  }
+}
 ```
